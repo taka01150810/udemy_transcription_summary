@@ -1,6 +1,171 @@
+
 console.log('start')
-// メソッドを呼び出す
-await showTranscriptPanel(page);
+
+await clickAllSectionsAndLectures(page);
+// await showTranscriptPanel(page);
+
+async function clickAllSectionsAndLectures(page) {
+  try {
+    console.log('全てのセクションのレクチャーを順番にクリックします');
+    
+    // コースの内容タブをクリック
+    console.log('1. コースの内容タブをクリックします');
+    const courseContentTab = await page.waitForSelector('#tabs--7-tab-1', { 
+      timeout: 10000 
+    });
+    
+    if (courseContentTab) {
+      await courseContentTab.click();
+      console.log('✓ コースの内容タブをクリックしました');
+      
+      // ページの読み込みを待機
+      await page.waitForTimeout(5000);
+      
+      // 全てのセクションを取得
+      const allSections = await page.evaluate(() => {
+        const sections = document.querySelectorAll('[data-purpose^="section-panel-"]');
+        const sectionData = [];
+        
+        sections.forEach((section, sectionIndex) => {
+          const sectionTitleElement = section.querySelector('[data-purpose="section-heading"] .ud-accordion-panel-title');
+          const sectionTitle = sectionTitleElement ? sectionTitleElement.textContent.trim() : `セクション${sectionIndex + 1}`;
+          
+          sectionData.push({
+            sectionIndex: sectionIndex,
+            title: sectionTitle
+          });
+        });
+        
+        return sectionData;
+      });
+      
+      console.log(`✓ ${allSections.length}個のセクションを発見しました`);
+      
+      // 各セクションのレクチャーを順番にクリック
+      for (const section of allSections) {
+        console.log(`\n【セクション${section.sectionIndex + 1}】: ${section.title}`);
+        
+        // セクションが開いているかどうかを確認
+        const isSectionOpen = await page.evaluate((sectionIndex) => {
+          const section = document.querySelector(`[data-purpose="section-panel-${sectionIndex}"]`);
+          if (section) {
+            const contentWrapper = section.querySelector('.accordion-panel-module--content-wrapper--TkHqe');
+            return contentWrapper && contentWrapper.getAttribute('aria-hidden') === 'false';
+          }
+          return false;
+        }, section.sectionIndex);
+        
+        if (!isSectionOpen) {
+          console.log(`  ${section.title}が閉じているので開きます`);
+          const sectionToggle = await page.waitForSelector(`[data-purpose="section-panel-${section.sectionIndex}"] .ud-accordion-panel-toggler`, {
+            timeout: 5000
+          });
+          
+          if (sectionToggle) {
+            await sectionToggle.click();
+            console.log(`  ✓ ${section.title}を開きました`);
+            await page.waitForTimeout(5000);
+          }
+        } else {
+          console.log(`  ✓ ${section.title}は既に開いています`);
+        }
+        
+        // セクションを開いた後にレクチャー情報を再取得
+        const lectures = await page.evaluate((sectionIndex) => {
+          const section = document.querySelector(`[data-purpose="section-panel-${sectionIndex}"]`);
+          if (section) {
+            const lectureLinks = section.querySelectorAll('[data-purpose^="curriculum-item-"]');
+            const lectures = [];
+            
+            lectureLinks.forEach((link, lectureIndex) => {
+              const lectureTitleElement = link.querySelector('[data-purpose="item-title"]');
+              const lectureTitle = lectureTitleElement ? lectureTitleElement.textContent.trim() : `レクチャー${lectureIndex + 1}`;
+              
+              lectures.push({
+                index: lectureIndex,
+                title: lectureTitle,
+                selector: link.getAttribute('data-purpose')
+              });
+            });
+            
+            return lectures;
+          }
+          return [];
+        }, section.sectionIndex);
+        
+        console.log(`レクチャー数: ${lectures.length}`);
+        
+        // 各レクチャーを順番にクリック
+        for (const lecture of lectures) {
+          console.log(`  ${lecture.index + 1}. ${lecture.title}をクリックします`);
+          
+          try {
+            // レクチャーをクリック
+            const lectureElement = await page.waitForSelector(`[data-purpose="${lecture.selector}"]`, {
+              timeout: 5000
+            });
+            
+            if (lectureElement) {
+              await lectureElement.click();
+              console.log(`    ✓ ${lecture.title}をクリックしました`);
+              
+              // ページの読み込みを待機
+              await page.waitForTimeout(5000);
+              
+              // コースの内容タブに戻る
+              const courseContentTabAgain = await page.waitForSelector('#tabs--7-tab-1', { 
+                timeout: 5000 
+              });
+              
+              if (courseContentTabAgain) {
+                await courseContentTabAgain.click();
+                console.log(`    ✓ コースの内容タブに戻りました`);
+                await page.waitForTimeout(5000);
+                
+                // セクションが再度開いているか確認
+                const isSectionStillOpen = await page.evaluate((sectionIndex) => {
+                  const section = document.querySelector(`[data-purpose="section-panel-${sectionIndex}"]`);
+                  if (section) {
+                    const contentWrapper = section.querySelector('.accordion-panel-module--content-wrapper--TkHqe');
+                    return contentWrapper && contentWrapper.getAttribute('aria-hidden') === 'false';
+                  }
+                  return false;
+                }, section.sectionIndex);
+                
+                if (!isSectionStillOpen) {
+                  console.log(`    ${section.title}を再度開きます`);
+                  const sectionToggleAgain = await page.waitForSelector(`[data-purpose="section-panel-${section.sectionIndex}"] .ud-accordion-panel-toggler`, {
+                    timeout: 5000
+                  });
+                  
+                  if (sectionToggleAgain) {
+                    await sectionToggleAgain.click();
+                    console.log(`    ✓ ${section.title}を再度開きました`);
+                    await page.waitForTimeout(5000);
+                  }
+                }
+              } else {
+                console.log(`    ✗ コースの内容タブに戻れませんでした`);
+              }
+            } else {
+              console.log(`    ✗ ${lecture.title}の要素が見つかりませんでした`);
+            }
+          } catch (error) {
+            console.log(`    ✗ ${lecture.title}のクリックでエラーが発生しました: ${error.message}`);
+          }
+        }
+      }
+      
+      console.log('\n✓ 全てのセクションのレクチャーのクリックが完了しました');
+      
+    } else {
+      console.log('✗ コースの内容タブの要素が見つかりませんでした');
+    }
+    
+  } catch (error) {
+    console.error('エラーが発生しました:', error.message);
+  }
+}
 
 async function showTranscriptPanel(page) {
   try {
