@@ -2,7 +2,6 @@
 console.log('start')
 
 await clickAllSectionsAndLectures(page);
-// await showTranscriptPanel(page);
 
 async function clickAllSectionsAndLectures(page) {
   try {
@@ -112,6 +111,10 @@ async function clickAllSectionsAndLectures(page) {
               // ページの読み込みを待機
               await page.waitForTimeout(5000);
               
+              // レクチャーをクリックした後にトランスクリプトパネルを表示
+              console.log(`    ${lecture.title}のトランスクリプトを取得します`);
+              await showTranscriptPanel(page);
+              
               // コースの内容タブに戻る
               const courseContentTabAgain = await page.waitForSelector('#tabs--7-tab-1', { 
                 timeout: 5000 
@@ -169,7 +172,8 @@ async function clickAllSectionsAndLectures(page) {
 
 async function showTranscriptPanel(page) {
   try {
-    console.log('start');
+    console.log('トランスクリプトパネルの取得を開始します');
+    
     // トランスクリプトパネルを待機
     const transcriptPanel = await page.waitForSelector('.transcript--transcript-panel--JLceZ', {
       timeout: 10000
@@ -199,10 +203,7 @@ async function showTranscriptPanel(page) {
       console.log('トランスクリプトパネルが見つかりませんでした');
     }
   } catch (error) {
-    console.error('エラーが発生しました:', error.message);
-  } finally {
-    // ブラウザを閉じる
-    await page.close();
+    console.error('トランスクリプト取得でエラーが発生しました:', error.message);
   }
 }
 
