@@ -4,6 +4,7 @@ console.log('start')
 await clickAllSectionsAndLectures(page);
 
 async function clickAllSectionsAndLectures(page) {
+  const transcripts = [];
   try {
     console.log('全てのセクションのレクチャーを順番にクリックします');
     
@@ -111,9 +112,10 @@ async function clickAllSectionsAndLectures(page) {
               // ページの読み込みを待機
               await page.waitForTimeout(5000);
               
-              // レクチャーをクリックした後にトランスクリプトパネルを表示
+              // レクチャーをクリックした後にトランスクリプトパネルを表示し内容を取得
               console.log(`    ${lecture.title}のトランスクリプトを取得します`);
-              await showTranscriptPanel(page);
+              const transcriptText = await showTranscriptPanel(page);
+              transcripts.push({ title: lecture.title, transcript: transcriptText });
               
               // コースの内容タブに戻る
               const courseContentTabAgain = await page.waitForSelector('#tabs--7-tab-1', { 
@@ -161,6 +163,11 @@ async function clickAllSectionsAndLectures(page) {
       
       console.log('\n✓ 全てのセクションのレクチャーのクリックが完了しました');
       
+      // すべてのトランスクリプトとレクチャータイトルの配列を出力
+      console.log('\n=== 全レクチャーのトランスクリプト配列 ===');
+      console.log(JSON.stringify(transcripts, null, 2));
+      console.log('=== 配列出力終了 ===');
+      
     } else {
       console.log('✗ コースの内容タブの要素が見つかりませんでした');
     }
@@ -195,15 +202,19 @@ async function showTranscriptPanel(page) {
         console.log('=== トランスクリプトの内容 ===');
         console.log(transcriptText);
         console.log('=== トランスクリプト終了 ===');
+        return transcriptText;
       } else {
         console.log('トランスクリプトのテキストが見つかりませんでした');
+        return '';
       }
 
     } else {
       console.log('トランスクリプトパネルが見つかりませんでした');
+      return '';
     }
   } catch (error) {
     console.error('トランスクリプト取得でエラーが発生しました:', error.message);
+    return '';
   }
 }
 
