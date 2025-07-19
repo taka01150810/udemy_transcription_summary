@@ -1,10 +1,14 @@
 
 console.log('start')
 
+// transcriptsをグローバルに宣言
+const transcripts = [];
+
 await clickAllSectionsAndLectures(page);
 
+await summarizeTranscriptsWithChatGPT(page, transcripts);
+
 async function clickAllSectionsAndLectures(page) {
-  const transcripts = [];
   try {
     console.log('全てのセクションのレクチャーを順番にクリックします');
     
@@ -217,4 +221,78 @@ async function showTranscriptPanel(page) {
     return '';
   }
 }
+
+async function summarizeTranscriptsWithChatGPT(page, transcripts) {
+  try {
+    console.log('\n=== ChatGPTでトランスクリプトを要約開始 ===');
+    
+    // ChatGPTに遷移
+    await page.goto('https://chatgpt.com/');
+    console.log("transcripts", transcripts);
+    
+    // ページの読み込みを待機
+    await page.waitForTimeout(3000);
+    
+    // 各トランスクリプトを順番に要約
+    for (let i = 0; i < transcripts.length; i++) {
+      const transcript = transcripts[i];
+      console.log(`\n【${i + 1}/${transcripts.length}】${transcript.title}を要約中...`);
+      
+      try {
+        // テキストエリアを待機（contenteditableのdiv）
+        const textArea = await page.waitForSelector('#prompt-textarea', {
+          timeout: 10000
+        });
+        
+        if (textArea) {
+          // テキストエリアをクリックしてフォーカス
+          await textArea.click();
+          
+          // 既存のテキストをクリア
+          await page.evaluate(() => {
+            const textArea = document.querySelector('#prompt-textarea');
+            if (textArea) {
+              textArea.innerHTML = '';
+            }
+          });
+          
+          // トランスクリプトの内容を入力
+          await textArea.type(transcript.transcript);
+          console.log(`    ✓ ${transcript.title}のトランスクリプトを入力しました`);
+          
+          // 送信ボタンを待機してクリック
+          const sendButton = await page.waitForSelector('[data-testid="send-button"]', {
+            timeout: 5000
+          });
+          
+          if (sendButton) {
+            await sendButton.click();
+            console.log(`    ✓ ${transcript.title}の要約リクエストを送信しました`);
+            
+            // レスポンスを待機（ChatGPTの応答を待つ）
+            await page.waitForTimeout(8000);
+            
+            // 次の要約のために少し待機
+            await page.waitForTimeout(2000);
+            
+          } else {
+            console.log(`    ✗ 送信ボタンが見つかりませんでした`);
+          }
+          
+        } else {
+          console.log(`    ✗ テキストエリアが見つかりませんでした`);
+        }
+        
+      } catch (error) {
+        console.log(`    ✗ ${transcript.title}の要約でエラーが発生しました: ${error.message}`);
+      }
+    }
+    
+    console.log('\n✓ 全てのトランスクリプトの要約が完了しました');
+    
+  } catch (error) {
+    console.error('ChatGPTでの要約でエラーが発生しました:', error.message);
+  }
+}
+
 
