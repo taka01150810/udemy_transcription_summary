@@ -6,6 +6,8 @@ const transcripts = [];
 
 await clickAllSectionsAndLectures(page);
 
+console.log('transcripts', transcripts);
+
 await summarizeTranscriptsWithChatGPT(page, transcripts);
 
 async function clickAllSectionsAndLectures(page) {
@@ -256,9 +258,17 @@ async function summarizeTranscriptsWithChatGPT(page, transcripts) {
             }
           });
           
-          // トランスクリプトの内容を入力
-          await textArea.type(transcript.transcript);
-          console.log(`    ✓ ${transcript.title}のトランスクリプトを入力しました`);
+          // トランスクリプトの内容を高速入力
+          await page.evaluate((transcriptText) => {
+            const textArea = document.querySelector('#prompt-textarea');
+            if (textArea) {
+              textArea.innerHTML = transcriptText;
+              // 入力イベントを発火
+              const event = new Event('input', { bubbles: true });
+              textArea.dispatchEvent(event);
+            }
+          }, transcript.transcript);
+          console.log(`    ✓ ${transcript.title}のトランスクリプトを高速入力しました`);
           
           // 送信ボタンを待機してクリック
           const sendButton = await page.waitForSelector('[data-testid="send-button"]', {
@@ -272,8 +282,8 @@ async function summarizeTranscriptsWithChatGPT(page, transcripts) {
             // レスポンスを待機（ChatGPTの応答を待つ）
             await page.waitForTimeout(8000);
             
-            // 次の要約のために少し待機
-            await page.waitForTimeout(2000);
+            // 次の要約のために15秒待機
+            await page.waitForTimeout(15000);
             
           } else {
             console.log(`    ✗ 送信ボタンが見つかりませんでした`);
